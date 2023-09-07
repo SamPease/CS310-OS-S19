@@ -1,0 +1,38 @@
+What is the vulnerability?
+
+We knew we were looking for a vulnerability in the handle method of webserver.c by what we learned about buffer overflow attacks. Inside the method there is a method to copy its argument into another, smaller, location. The problem is that there is a helper method to make sure the lengths are correct to not cause a buffer overflow. This helper method, which checks to make sure the argument is under 100 characters converts the int, len, into type byte which overflows after 256 so we can exploit this to imput any string <100 mod 256. This allows us to cause a buffer overflow.
+
+How did you exploit it?
+
+We exploited it by saving a longer input string to Filename and overflowing into the return address. This return address was changed to point to within this block of written code where shellcode was placed to run a terminal on the server. We then connected remotely to this terminal and changed files on the server.
+
+How does the vulnerability work on the stack (specifically with respect to your webserver)?
+
+This vulnerability works as the stack builds downward in memory. Thus by saving a longer piece of data than is allocated for you can overwrite previous code in the stack. So by calling a funciton which creates a new frame on the stack we can then overflow the return address of the function so when it attempts to quit, instaed of returning to the previous frame we return to a location of our choosing.
+
+How did you "tune" your attack (for the local and remote servers)?
+
+Webserver.c copied any message you sent to it to this filename location if the message starts with GET / and ends with HTTP. So naturally the attack string follows this format.
+First we tried an attack string consisting of all 'A's. Using GDD we could see that the server was segfaulting at 0x41414141 (the address corresponding to AAAA). So we were clearly correclty overriding the return address as desrired.
+Next we used an attack string consisting of repeated strings of "1234567890qwertyuiopasdfghjklzxcvbnm" and saw what address the seg fault was was in order to determine where in the attack string the return address was.
+Next we constructed an attack string starting with the shell code from https://www2.cs.duke.edu/courses/spring18/compsci310/shellcode.html and the return address overwritten to point to the beginning of the attack string as determined by GDB.
+This was successful on the local server, but not on the remote server.
+Next we changed the attack string to 140 No ops, the desired return address, 580 no ops, then the desire shell code. This was from piazza suggestions to construct a no op slide to increase the target when trying to guess a return address to hit the desired region.
+We then tried many many return addresses but were unable to pwn the server. 
+We determined that the distance between filename and the return address must be changing as our desired return address must no longer be hitting the right spot.
+We then modified our attack string to 36 copies of the return address, 580 no ops, then the desire shellcode. This was effective upon our second guessed memory address 0xBFFFFDFF (piazza pointed out the top gigabyte is used for the kernel in this situation).
+We then pwned the server. 
+
+What does your final attack string look like? (not the exact string, just the format ex. GET / XXX YYYY ZZZ HTTP)
+
+GET / new_addr*36 nop*580 shellcode HTTP
+
+What command(s) did you use to carry out the attack? 
+
+We used the attack string to create the terminal on the remote server
+Then we connected to it with nc -v 152.3.137.81 19278
+Then we changed index.html to simple "pwned" and made a folder titled success for good measure.
+
+What file(s) did you modify on the remote server?
+
+Changed index.html to simple "pwned" and made a folder titled success for good measure.

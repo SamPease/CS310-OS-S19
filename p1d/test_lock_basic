@@ -1,0 +1,32 @@
+#include <fstream>
+#include "thread.h"
+#include <vector>
+#include <iostream>
+#include <cstdlib>
+#include <cstdio>
+
+
+
+
+void thread1(void* a){
+	thread_lock(1);
+}
+
+void thread2(void* a){
+	thread_lock(1);
+	exit(1);
+}
+
+
+void start(void *a){
+	thread_create(thread1, a);
+	thread_create(thread2, a);
+}
+
+
+//test thread actually holds a lock when it requests it
+int main(int argc, char*argv[]){
+
+	thread_libinit(start, argv);
+
+}
